@@ -1,0 +1,28 @@
+// Sea++ complete lexer test
+
+class TestClass begin
+ int integerValue = 42;
+ float floatValue = 3.14f;
+ double doubleValue = 9.0134;
+ string message = "Hello world!";
+ bool condition = true;
+
+ /*
+ This is a multi-line comment.
+ It must be ignored by the lexer.
+ */
+
+ void test_method(int x, float y) begin
+  x++;
+  y--;
+
+  if (x >= 10 && x != 20)
+   x = x + 1;
+
+  if (x <= 100 || !condition)
+   x = x % 2;
+
+  TestClass object;
+  object.test_method(5, 2.5f);
+ end
+end

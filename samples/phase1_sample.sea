@@ -1,0 +1,16 @@
+class MyClass begin
+    int _value = 10;
+
+    void set_value(int _value)
+    begin
+        _value = value;
+    end
+end
+
+int main begin
+    float var1 = 0.05f;
+    double var2 = 0.05;
+    MyClass myClassInstance;
+    myClassInstance.set_value(10);
+    return 0;
+end
