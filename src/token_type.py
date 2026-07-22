@@ -1,12 +1,10 @@
-"""
-Token type definitions for the Sea++ lexical analyzer.
-"""
+"""Token type definitions for the Sea++ lexer and parser."""
 
 from enum import Enum, auto
 
 
 class TokenType(Enum):
-    """All token categories recognized in Phase 1."""
+    """All token categories recognized by the Sea++ front end."""
 
     # General tokens
     KEYWORD = auto()
@@ -55,6 +53,8 @@ class TokenType(Enum):
     RIGHT_BRACKET = auto()
     LEFT_BRACE = auto()
     RIGHT_BRACE = auto()
+    QUESTION_MARK = auto()
+    COLON = auto()
 
     # End of input
     EOF = auto()

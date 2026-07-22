@@ -1,20 +1,9 @@
-"""
-Lexical analyzer for the Sea++ programming language.
-
-Phase 1 responsibilities:
-- Recognize keywords and identifiers.
-- Recognize integer, float, double, and string literals.
-- Recognize operators and delimiters.
-- Ignore whitespace and comments.
-- Preserve line and column positions.
-- Report lexical errors.
-"""
+"""Lexical analyzer for the Sea++ programming language."""
 
 from src.sea_token import Token
 from src.token_type import TokenType
 
 
-# Reserved words of the Sea++ language.
 KEYWORDS = frozenset(
     {
         "begin",
@@ -43,7 +32,6 @@ KEYWORDS = frozenset(
 )
 
 
-# Operators consisting of two characters.
 TWO_CHARACTER_TOKENS = {
     "++": TokenType.INCREMENT,
     "--": TokenType.DECREMENT,
@@ -56,7 +44,6 @@ TWO_CHARACTER_TOKENS = {
 }
 
 
-# Operators and delimiters consisting of one character.
 SINGLE_CHARACTER_TOKENS = {
     "+": TokenType.PLUS,
     "-": TokenType.MINUS,
@@ -82,6 +69,9 @@ SINGLE_CHARACTER_TOKENS = {
 
     "{": TokenType.LEFT_BRACE,
     "}": TokenType.RIGHT_BRACE,
+
+    "?": TokenType.QUESTION_MARK,
+    ":": TokenType.COLON,
 }
 
 
@@ -95,13 +85,6 @@ class Lexer:
     TAB_WIDTH = 4
 
     def __init__(self, source: str) -> None:
-        """
-        Initialize the lexer.
-
-        Args:
-            source: Complete Sea++ source code.
-        """
-
         self.source = source
 
         self.current_index = 0
@@ -111,7 +94,7 @@ class Lexer:
         self.tokens: list[Token] = []
 
     def tokenize(self) -> list[Token]:
-        """Scan the complete source code and return its tokens."""
+        """Scan the source code and return all recognized tokens."""
 
         while not self.is_at_end():
             character = self.current_char()
@@ -140,26 +123,15 @@ class Lexer:
         return self.tokens
 
     def is_at_end(self) -> bool:
-        """Return True when every source character is consumed."""
-
         return self.current_index >= len(self.source)
 
     def current_char(self) -> str:
-        """Return the current character without consuming it."""
-
         if self.is_at_end():
             return "\0"
 
         return self.source[self.current_index]
 
     def peek(self, offset: int = 1) -> str:
-        """
-        Return a future character without consuming it.
-
-        Args:
-            offset: Number of characters after the current character.
-        """
-
         target_index = self.current_index + offset
 
         if target_index >= len(self.source):
@@ -168,15 +140,9 @@ class Lexer:
         return self.source[target_index]
 
     def advance(self) -> str:
-        """
-        Consume one logical character.
-
-        Line and column numbers are updated automatically.
-        """
-
         character = self.current_char()
 
-        # Treat Windows CRLF as one newline.
+        # Windows newline: \r\n
         if character == "\r" and self.peek() == "\n":
             self.current_index += 2
             self.current_line += 1
@@ -202,8 +168,6 @@ class Lexer:
 
     @staticmethod
     def is_ascii_letter(character: str) -> bool:
-        """Return True if the character is an English letter."""
-
         return (
             "a" <= character <= "z"
             or "A" <= character <= "Z"
@@ -211,18 +175,10 @@ class Lexer:
 
     @staticmethod
     def is_ascii_digit(character: str) -> bool:
-        """Return True if the character is an ASCII digit."""
-
         return "0" <= character <= "9"
 
     @classmethod
     def is_identifier_start(cls, character: str) -> bool:
-        """
-        Check the first-character rule for identifiers.
-
-        An identifier begins with an English letter or underscore.
-        """
-
         return (
             cls.is_ascii_letter(character)
             or character == "_"
@@ -230,21 +186,12 @@ class Lexer:
 
     @classmethod
     def is_identifier_part(cls, character: str) -> bool:
-        """
-        Check the remaining-character rule for identifiers.
-
-        Remaining characters may contain letters, digits,
-        or underscores.
-        """
-
         return (
             cls.is_identifier_start(character)
             or cls.is_ascii_digit(character)
         )
 
     def skip_whitespace(self) -> None:
-        """Consume whitespace without producing tokens."""
-
         while (
             not self.is_at_end()
             and self.current_char() in {" ", "\t", "\n", "\r"}
@@ -252,17 +199,6 @@ class Lexer:
             self.advance()
 
     def skip_comment(self) -> None:
-        """
-        Ignore a single-line or multi-line comment.
-
-        Supported forms:
-            // comment
-
-            /*
-            multi-line comment
-            */
-        """
-
         start_line = self.current_line
         start_column = self.current_column
 
@@ -301,8 +237,6 @@ class Lexer:
         )
 
     def scan_identifier_or_keyword(self) -> None:
-        """Recognize an identifier or reserved keyword."""
-
         start_index = self.current_index
         start_line = self.current_line
         start_column = self.current_column
@@ -323,27 +257,17 @@ class Lexer:
             token_type = TokenType.IDENTIFIER
 
         self.add_token(
-            token_type=token_type,
-            lexeme=lexeme,
-            line=start_line,
-            column=start_column,
+            token_type,
+            lexeme,
+            start_line,
+            start_column,
         )
 
     def scan_number(self) -> None:
-        """
-        Recognize an integer, double, or float literal.
-
-        Examples:
-            42      -> Integer Literal
-            3.14    -> Double Literal
-            3.14f   -> Float Literal
-        """
-
         start_index = self.current_index
         start_line = self.current_line
         start_column = self.current_column
 
-        # Read digits before the decimal point.
         while (
             not self.is_at_end()
             and self.is_ascii_digit(self.current_char())
@@ -352,8 +276,6 @@ class Lexer:
 
         has_decimal_point = False
 
-        # A decimal point belongs to the number only if
-        # at least one digit follows it.
         if (
             self.current_char() == "."
             and self.is_ascii_digit(self.peek())
@@ -380,7 +302,6 @@ class Lexer:
         else:
             token_type = TokenType.INTEGER_LITERAL
 
-        # Reject invalid forms such as 12value or 3.14ff.
         if self.is_identifier_part(self.current_char()):
             while (
                 not self.is_at_end()
@@ -403,20 +324,18 @@ class Lexer:
         ]
 
         self.add_token(
-            token_type=token_type,
-            lexeme=lexeme,
-            line=start_line,
-            column=start_column,
+            token_type,
+            lexeme,
+            start_line,
+            start_column,
         )
 
     def scan_string(self) -> None:
-        """Recognize a string enclosed in double quotation marks."""
-
         start_index = self.current_index
         start_line = self.current_line
         start_column = self.current_column
 
-        # Consume the opening quotation mark.
+        # Opening quotation mark
         self.advance()
 
         while (
@@ -431,7 +350,7 @@ class Lexer:
                 f"at Line {start_line}, Column {start_column}"
             )
 
-        # Consume the closing quotation mark.
+        # Closing quotation mark
         self.advance()
 
         lexeme = self.source[
@@ -439,22 +358,19 @@ class Lexer:
         ]
 
         self.add_token(
-            token_type=TokenType.STRING_LITERAL,
-            lexeme=lexeme,
-            line=start_line,
-            column=start_column,
+            TokenType.STRING_LITERAL,
+            lexeme,
+            start_line,
+            start_column,
         )
 
     def scan_operator_or_delimiter(self) -> None:
-        """Recognize an operator or delimiter."""
-
         start_line = self.current_line
         start_column = self.current_column
 
         character = self.current_char()
         two_character_lexeme = character + self.peek()
 
-        # Two-character operators have priority.
         if two_character_lexeme in TWO_CHARACTER_TOKENS:
             token_type = TWO_CHARACTER_TOKENS[
                 two_character_lexeme
@@ -464,10 +380,10 @@ class Lexer:
             self.advance()
 
             self.add_token(
-                token_type=token_type,
-                lexeme=two_character_lexeme,
-                line=start_line,
-                column=start_column,
+                token_type,
+                two_character_lexeme,
+                start_line,
+                start_column,
             )
 
             return
@@ -480,10 +396,10 @@ class Lexer:
             self.advance()
 
             self.add_token(
-                token_type=token_type,
-                lexeme=character,
-                line=start_line,
-                column=start_column,
+                token_type,
+                character,
+                start_line,
+                start_column,
             )
 
             return
@@ -501,13 +417,11 @@ class Lexer:
         line: int,
         column: int,
     ) -> None:
-        """Create and store one token."""
-
-        token = Token(
-            token_type=token_type,
-            lexeme=lexeme,
-            line=line,
-            column=column,
+        self.tokens.append(
+            Token(
+                token_type,
+                lexeme,
+                line,
+                column,
+            )
         )
-
-        self.tokens.append(token)

@@ -1,6 +1,4 @@
-"""
-Token data model and output formatting for the Sea++ lexer.
-"""
+"""Token data model and output formatting for Sea++."""
 
 from dataclasses import dataclass
 
@@ -47,6 +45,8 @@ TOKEN_DISPLAY_NAMES = {
     TokenType.RIGHT_BRACKET: "Right Bracket",
     TokenType.LEFT_BRACE: "Left Brace",
     TokenType.RIGHT_BRACE: "Right Brace",
+    TokenType.QUESTION_MARK: "Question Mark",
+    TokenType.COLON: "Colon",
 
     TokenType.EOF: "End of File",
 }
@@ -54,7 +54,7 @@ TOKEN_DISPLAY_NAMES = {
 
 @dataclass(frozen=True)
 class Token:
-    """One lexical token and its starting position in the source file."""
+    """One lexical token and its starting source position."""
 
     token_type: TokenType
     lexeme: str
@@ -62,8 +62,6 @@ class Token:
     column: int
 
     def __post_init__(self) -> None:
-        """Validate line and column numbers."""
-
         if self.line < 1:
             raise ValueError(
                 "Token line number must be greater than zero."
@@ -76,13 +74,9 @@ class Token:
 
     @property
     def display_name(self) -> str:
-        """Return the printable name of the token category."""
-
         return TOKEN_DISPLAY_NAMES[self.token_type]
 
     def __str__(self) -> str:
-        """Format the token according to the project output format."""
-
         return (
             f"{self.display_name} ({self.lexeme})"
             f" - Line {self.line}, Column {self.column}"
