@@ -1,0 +1,705 @@
+{
+  "kind": "Program",
+  "children": [
+    {
+      "kind": "ClassDeclaration",
+      "attributes": {
+        "name": "MyClass"
+      },
+      "line": 1,
+      "column": 1,
+      "children": [
+        {
+          "kind": "VariableDeclaration",
+          "attributes": {
+            "type": "int",
+            "name": "int_var"
+          },
+          "line": 2,
+          "column": 2
+        },
+        {
+          "kind": "VariableDeclaration",
+          "attributes": {
+            "type": "int",
+            "name": "int_var2"
+          },
+          "line": 3,
+          "column": 2,
+          "children": [
+            {
+              "kind": "Literal",
+              "attributes": {
+                "type": "int",
+                "value": 10,
+                "text": "10"
+              },
+              "line": 3,
+              "column": 17
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "attributes": {
+            "name": "some_function",
+            "return_type": "void",
+            "owner_class": "MyClass"
+          },
+          "line": 5,
+          "column": 2,
+          "children": [
+            {
+              "kind": "Parameter",
+              "attributes": {
+                "type": "int",
+                "name": "x"
+              },
+              "line": 5,
+              "column": 21
+            },
+            {
+              "kind": "Parameter",
+              "attributes": {
+                "type": "float",
+                "name": "y"
+              },
+              "line": 5,
+              "column": 28
+            },
+            {
+              "kind": "Parameter",
+              "attributes": {
+                "type": "double",
+                "name": "z"
+              },
+              "line": 5,
+              "column": 37
+            },
+            {
+              "kind": "Block",
+              "line": 5,
+              "column": 47
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "FunctionDeclaration",
+      "attributes": {
+        "name": "free_function",
+        "return_type": "void",
+        "owner_class": null
+      },
+      "line": 9,
+      "column": 1,
+      "children": [
+        {
+          "kind": "Parameter",
+          "attributes": {
+            "type": "int",
+            "name": "a1"
+          },
+          "line": 9,
+          "column": 20
+        },
+        {
+          "kind": "Parameter",
+          "attributes": {
+            "type": "int",
+            "name": "a2"
+          },
+          "line": 9,
+          "column": 28
+        },
+        {
+          "kind": "Block",
+          "line": 9,
+          "column": 36
+        }
+      ]
+    },
+    {
+      "kind": "FunctionDeclaration",
+      "attributes": {
+        "name": "main",
+        "return_type": "void",
+        "owner_class": null
+      },
+      "line": 12,
+      "column": 1,
+      "children": [
+        {
+          "kind": "Block",
+          "line": 12,
+          "column": 13,
+          "children": [
+            {
+              "kind": "VariableDeclaration",
+              "attributes": {
+                "type": "float",
+                "name": "float_var"
+              },
+              "line": 13,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "float",
+                    "value": 10.0,
+                    "text": "10.0f"
+                  },
+                  "line": 13,
+                  "column": 20
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclaration",
+              "attributes": {
+                "type": "int",
+                "name": "j"
+              },
+              "line": 14,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "attributes": {
+                    "operator": "+"
+                  },
+                  "line": 14,
+                  "column": 26,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "attributes": {
+                        "operator": "-"
+                      },
+                      "line": 14,
+                      "column": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "attributes": {
+                            "operator": "+"
+                          },
+                          "line": 14,
+                          "column": 13,
+                          "children": [
+                            {
+                              "kind": "Literal",
+                              "attributes": {
+                                "type": "int",
+                                "value": 20,
+                                "text": "20"
+                              },
+                              "line": 14,
+                              "column": 10
+                            },
+                            {
+                              "kind": "BinaryExpression",
+                              "attributes": {
+                                "operator": "*"
+                              },
+                              "line": 14,
+                              "column": 17,
+                              "children": [
+                                {
+                                  "kind": "Literal",
+                                  "attributes": {
+                                    "type": "int",
+                                    "value": 2,
+                                    "text": "2"
+                                  },
+                                  "line": 14,
+                                  "column": 15
+                                },
+                                {
+                                  "kind": "Literal",
+                                  "attributes": {
+                                    "type": "int",
+                                    "value": 3,
+                                    "text": "3"
+                                  },
+                                  "line": 14,
+                                  "column": 19
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 10,
+                            "text": "10"
+                          },
+                          "line": 14,
+                          "column": 23
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "attributes": {
+                        "operator": "/"
+                      },
+                      "line": 14,
+                      "column": 31,
+                      "children": [
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 15,
+                            "text": "15"
+                          },
+                          "line": 14,
+                          "column": 28
+                        },
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 5,
+                            "text": "5"
+                          },
+                          "line": 14,
+                          "column": 33
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "FunctionCall",
+              "attributes": {
+                "name": "free_function"
+              },
+              "line": 16,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "int",
+                    "value": 5,
+                    "text": "5"
+                  },
+                  "line": 16,
+                  "column": 16
+                },
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "int",
+                    "value": 10,
+                    "text": "10"
+                  },
+                  "line": 16,
+                  "column": 19
+                }
+              ]
+            },
+            {
+              "kind": "ForStatement",
+              "line": 18,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "ForInitializer",
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "attributes": {
+                        "type": "int",
+                        "name": "i"
+                      },
+                      "line": 18,
+                      "column": 6,
+                      "children": [
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 0,
+                            "text": "0"
+                          },
+                          "line": 18,
+                          "column": 14
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ForCondition",
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "attributes": {
+                        "operator": "<"
+                      },
+                      "line": 18,
+                      "column": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "i"
+                          },
+                          "line": 18,
+                          "column": 17
+                        },
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 10,
+                            "text": "10"
+                          },
+                          "line": 18,
+                          "column": 21
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ForUpdate",
+                  "children": [
+                    {
+                      "kind": "UpdateExpression",
+                      "attributes": {
+                        "operator": "++",
+                        "position": "postfix"
+                      },
+                      "line": 18,
+                      "column": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "i"
+                          },
+                          "line": 18,
+                          "column": 25
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "line": 19,
+                  "column": 2,
+                  "children": [
+                    {
+                      "kind": "FunctionCall",
+                      "attributes": {
+                        "name": "free_function"
+                      },
+                      "line": 20,
+                      "column": 3,
+                      "children": [
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 10,
+                            "text": "10"
+                          },
+                          "line": 20,
+                          "column": 17
+                        },
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "int_var"
+                          },
+                          "line": 20,
+                          "column": 21
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclaration",
+              "attributes": {
+                "type": "int",
+                "name": "i"
+              },
+              "line": 23,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "int",
+                    "value": 0,
+                    "text": "0"
+                  },
+                  "line": 23,
+                  "column": 10
+                }
+              ]
+            },
+            {
+              "kind": "WhileStatement",
+              "line": 25,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "attributes": {
+                    "operator": "<"
+                  },
+                  "line": 25,
+                  "column": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "attributes": {
+                        "name": "i"
+                      },
+                      "line": 25,
+                      "column": 8
+                    },
+                    {
+                      "kind": "Literal",
+                      "attributes": {
+                        "type": "int",
+                        "value": 10,
+                        "text": "10"
+                      },
+                      "line": 25,
+                      "column": 12
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "line": 25,
+                  "column": 16,
+                  "children": [
+                    {
+                      "kind": "FunctionCall",
+                      "attributes": {
+                        "name": "print"
+                      },
+                      "line": 26,
+                      "column": 3,
+                      "children": [
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "string",
+                            "value": "Hello world!",
+                            "text": "\"Hello world!\""
+                          },
+                          "line": 26,
+                          "column": 9
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "UpdateExpression",
+                      "attributes": {
+                        "operator": "++",
+                        "position": "postfix"
+                      },
+                      "line": 27,
+                      "column": 3,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "i"
+                          },
+                          "line": 27,
+                          "column": 3
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "IfStatement",
+              "line": 30,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "IfBranch",
+                  "line": 30,
+                  "column": 2,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "attributes": {
+                        "operator": "<"
+                      },
+                      "line": 30,
+                      "column": 7,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "i"
+                          },
+                          "line": 30,
+                          "column": 5
+                        },
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 5,
+                            "text": "5"
+                          },
+                          "line": 30,
+                          "column": 9
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "line": 30,
+                      "column": 12,
+                      "children": [
+                        {
+                          "kind": "FunctionCall",
+                          "attributes": {
+                            "name": "print"
+                          },
+                          "line": 31,
+                          "column": 3,
+                          "children": [
+                            {
+                              "kind": "Literal",
+                              "attributes": {
+                                "type": "string",
+                                "value": "If!",
+                                "text": "\"If!\""
+                              },
+                              "line": 31,
+                              "column": 9
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ElseIfBranch",
+                  "line": 33,
+                  "column": 2,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "attributes": {
+                        "operator": "<"
+                      },
+                      "line": 33,
+                      "column": 12,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "attributes": {
+                            "name": "j"
+                          },
+                          "line": 33,
+                          "column": 10
+                        },
+                        {
+                          "kind": "Literal",
+                          "attributes": {
+                            "type": "int",
+                            "value": 5,
+                            "text": "5"
+                          },
+                          "line": 33,
+                          "column": 14
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "children": [
+                        {
+                          "kind": "FunctionCall",
+                          "attributes": {
+                            "name": "print"
+                          },
+                          "line": 34,
+                          "column": 3,
+                          "children": [
+                            {
+                              "kind": "Literal",
+                              "attributes": {
+                                "type": "string",
+                                "value": "Else if!",
+                                "text": "\"Else if!\""
+                              },
+                              "line": 34,
+                              "column": 9
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ElseBranch",
+                  "line": 35,
+                  "column": 2,
+                  "children": [
+                    {
+                      "kind": "Block",
+                      "line": 35,
+                      "column": 7,
+                      "children": [
+                        {
+                          "kind": "FunctionCall",
+                          "attributes": {
+                            "name": "print"
+                          },
+                          "line": 36,
+                          "column": 3,
+                          "children": [
+                            {
+                              "kind": "Literal",
+                              "attributes": {
+                                "type": "string",
+                                "value": "Else!",
+                                "text": "\"Else!\""
+                              },
+                              "line": 36,
+                              "column": 9
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
