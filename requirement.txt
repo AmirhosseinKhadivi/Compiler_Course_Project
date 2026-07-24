@@ -1,0 +1,10 @@
+# Sea++ Compiler Project
+# Python Version: 3.10+
+
+pytest==8.3.5
+
+# Notes:
+# - tkinter is included with the standard Python installation on Windows.
+# - Graphviz is a separate system application and must be installed separately.
+# - The project does not require the Python graphviz package because it calls
+#   the Graphviz "dot" executable directly.
