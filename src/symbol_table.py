@@ -114,6 +114,14 @@ class SymbolTable:
 
         self.functions[key] = info
 
+    def lookup_function(
+        self,
+        name: str,
+    ) -> FunctionInfo | None:
+        """Return a function or method by its stored name."""
+
+        return self.functions.get(name)
+
     def declare_class(self, name: str) -> None:
         """Declare a class."""
 
@@ -123,3 +131,8 @@ class SymbolTable:
             )
 
         self.classes.add(name)
+
+    def has_class(self, name: str) -> bool:
+        """Check whether a class has been declared."""
+
+        return name in self.classes

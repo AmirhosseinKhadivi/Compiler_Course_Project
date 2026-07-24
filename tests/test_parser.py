@@ -188,5 +188,151 @@ end
             )
 
 
+class ParserBonusTests(unittest.TestCase):
+    """Tests for the optional Phase 2 features."""
+
+    def build_parser(self, source: str) -> Parser:
+        tokens = Lexer(source).tokenize()
+        parser = Parser(tokens)
+        parser.parse()
+        return parser
+
+    def test_ast_is_created(self) -> None:
+        parser = self.build_parser(
+            "void main() begin int x = 2 + 3 * 4; end"
+        )
+
+        ast_data = parser.ast.to_dict()
+
+        self.assertEqual(ast_data["kind"], "Program")
+        self.assertEqual(
+            ast_data["children"][0]["kind"],
+            "FunctionDeclaration",
+        )
+        self.assertIn(
+            "BinaryExpression",
+            parser.ast.pretty(),
+        )
+
+    def test_duplicate_class_is_rejected(self) -> None:
+        source = """
+class A begin end
+class A begin end
+void main() begin end
+"""
+
+        with self.assertRaisesRegex(
+            ParseError,
+            "Class 'A' is already defined",
+        ):
+            parse_source(source)
+
+    def test_duplicate_function_is_rejected(self) -> None:
+        source = """
+void helper() begin end
+void helper() begin end
+void main() begin end
+"""
+
+        with self.assertRaisesRegex(
+            ParseError,
+            "Function 'helper' is already defined",
+        ):
+            parse_source(source)
+
+    def test_forward_function_call_is_valid(self) -> None:
+        source = """
+void main() begin
+ helper(10);
+end
+
+void helper(int value) begin
+end
+"""
+
+        output = parse_source(source)
+        self.assertIn("Call: helper(10)", output)
+
+    def test_unknown_function_is_rejected(self) -> None:
+        source = """
+void main() begin
+ missing(10);
+end
+"""
+
+        with self.assertRaisesRegex(
+            ParseError,
+            "Function 'missing' is not defined",
+        ):
+            parse_source(source)
+
+    def test_argument_count_is_checked(self) -> None:
+        source = """
+void helper(int value) begin end
+void main() begin
+ helper();
+end
+"""
+
+        with self.assertRaisesRegex(
+            ParseError,
+            "expects 1 argument",
+        ):
+            parse_source(source)
+
+    def test_argument_type_is_checked(self) -> None:
+        source = """
+void helper(int value) begin end
+void main() begin
+ helper("wrong");
+end
+"""
+
+        with self.assertRaisesRegex(
+            ParseError,
+            "has type 'string'",
+        ):
+            parse_source(source)
+
+    def test_member_function_call_is_validated(self) -> None:
+        source = """
+class A begin
+ void run(int value) begin end
+end
+
+void main() begin
+ A object;
+ object.run(10);
+end
+"""
+
+        output = parse_source(source)
+        self.assertIn("Call: object.run(10)", output)
+
+    def test_cyclic_dependency_warning(self) -> None:
+        source = """
+class A begin
+ B b;
+end
+
+class B begin
+ A a;
+end
+
+void main() begin end
+"""
+
+        output = parse_source(source)
+
+        self.assertTrue(
+            any(
+                line.startswith(
+                    "Warning: Cyclic dependency detected"
+                )
+                for line in output
+            )
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

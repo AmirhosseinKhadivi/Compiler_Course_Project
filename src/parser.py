@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from src.ast_nodes import ASTNode
 from src.sea_token import Token
 from src.symbol_table import (
     FunctionInfo,
@@ -37,6 +38,18 @@ class ExpressionResult:
     value: Any = None
     type_name: str | None = None
     is_math_expression: bool = False
+    node: ASTNode | None = None
+
+
+@dataclass(frozen=True)
+class PendingCall:
+    """A function call that is validated after all definitions are known."""
+
+    name: str
+    argument_types: tuple[str | None, ...]
+    token: Token
+    current_class_name: str | None = None
+    receiver_type: str | None = None
 
 
 class Parser:
@@ -74,15 +87,23 @@ class Parser:
         self.current_function_return_type: str | None = None
         self.current_class_name: str | None = None
 
+        self.ast = ASTNode("Program")
+        self.pending_calls: list[PendingCall] = []
+        self.class_dependencies: dict[str, set[str]] = {}
+
     def parse(self) -> list[str]:
-        """Parse a complete program."""
+        """Parse a complete program and build its AST."""
 
         while not self.is_at_end():
             if self.check_keyword("class"):
-                self.parse_class_definition()
+                self.ast.add_child(
+                    self.parse_class_definition()
+                )
 
             elif self.looks_like_function_definition():
-                self.parse_function_definition()
+                self.ast.add_child(
+                    self.parse_function_definition()
+                )
 
             else:
                 self.error_current(
@@ -96,16 +117,19 @@ class Parser:
                 f"found {self.main_count}."
             )
 
+        self.validate_pending_calls()
+        self.emit_cyclic_dependency_warnings()
+
         return self.output
 
     # ---------------------------------------------------------
     # Top-level definitions
     # ---------------------------------------------------------
 
-    def parse_class_definition(self) -> None:
-        """Parse a class definition."""
+    def parse_class_definition(self) -> ASTNode:
+        """Parse a class definition and return its AST node."""
 
-        self.consume_keyword("class")
+        class_token = self.consume_keyword("class")
 
         name_token = self.consume(
             TokenType.IDENTIFIER,
@@ -122,11 +146,23 @@ class Parser:
                 str(error),
             )
 
+        self.class_dependencies.setdefault(
+            name_token.lexeme,
+            set(),
+        )
+
         self.output.append(
             f"Class: {name_token.lexeme}"
         )
 
         self.consume_keyword("begin")
+
+        class_node = ASTNode(
+            "ClassDeclaration",
+            attributes={"name": name_token.lexeme},
+            line=class_token.line,
+            column=class_token.column,
+        )
 
         previous_class_name = self.current_class_name
         self.current_class_name = name_token.lexeme
@@ -139,11 +175,15 @@ class Parser:
                 and not self.is_at_end()
             ):
                 if self.looks_like_function_definition():
-                    self.parse_function_definition()
+                    class_node.add_child(
+                        self.parse_function_definition()
+                    )
 
                 elif self.looks_like_variable_declaration():
-                    self.parse_variable_declaration(
-                        expect_semicolon=True
+                    class_node.add_child(
+                        self.parse_variable_declaration(
+                            expect_semicolon=True
+                        )
                     )
 
                 else:
@@ -158,9 +198,12 @@ class Parser:
             self.symbols.pop_scope()
             self.current_class_name = previous_class_name
 
-    def parse_function_definition(self) -> None:
-        """Parse a function definition."""
+        return class_node
 
+    def parse_function_definition(self) -> ASTNode:
+        """Parse a function definition and return its AST node."""
+
+        start_token = self.current()
         return_type = self.consume_type(
             allow_void=True
         )
@@ -176,9 +219,12 @@ class Parser:
         )
 
         parameters: list[ParameterInfo] = []
+        parameter_nodes: list[ASTNode] = []
+        parameter_tokens: list[Token] = []
 
         if not self.check(TokenType.RIGHT_PAREN):
             while True:
+                parameter_start = self.current()
                 parameter_type = self.consume_type(
                     allow_void=False
                 )
@@ -192,6 +238,18 @@ class Parser:
                     ParameterInfo(
                         parameter_type,
                         parameter_name.lexeme,
+                    )
+                )
+                parameter_tokens.append(parameter_name)
+                parameter_nodes.append(
+                    ASTNode(
+                        "Parameter",
+                        attributes={
+                            "type": parameter_type,
+                            "name": parameter_name.lexeme,
+                        },
+                        line=parameter_start.line,
+                        column=parameter_start.column,
                     )
                 )
 
@@ -255,6 +313,18 @@ class Parser:
             f"{name_token.lexeme}({parameter_text})"
         )
 
+        function_node = ASTNode(
+            "FunctionDeclaration",
+            attributes={
+                "name": name_token.lexeme,
+                "return_type": return_type,
+                "owner_class": self.current_class_name,
+            },
+            children=parameter_nodes,
+            line=start_token.line,
+            column=start_token.column,
+        )
+
         previous_return_type = (
             self.current_function_return_type
         )
@@ -264,7 +334,10 @@ class Parser:
         self.symbols.push_scope()
 
         try:
-            for parameter in parameters:
+            for parameter, parameter_token in zip(
+                parameters,
+                parameter_tokens,
+            ):
                 try:
                     self.symbols.declare_variable(
                         parameter.name,
@@ -273,11 +346,13 @@ class Parser:
 
                 except ValueError as error:
                     self.semantic_error(
-                        name_token,
+                        parameter_token,
                         str(error),
                     )
 
-            self.parse_function_body()
+            function_node.add_child(
+                self.parse_function_body()
+            )
 
         finally:
             self.symbols.pop_scope()
@@ -286,78 +361,93 @@ class Parser:
                 previous_return_type
             )
 
-    def parse_function_body(self) -> None:
-        """Parse a function body."""
+        return function_node
+
+    def parse_function_body(self) -> ASTNode:
+        """Parse a function body and return a block node."""
+
+        body_node = ASTNode("Block")
 
         if self.match_keyword("begin"):
+            begin_token = self.previous()
+            body_node.line = begin_token.line
+            body_node.column = begin_token.column
+
             while (
                 not self.check_keyword("end")
                 and not self.is_at_end()
             ):
-                self.parse_statement()
+                body_node.add_child(
+                    self.parse_statement()
+                )
 
             self.consume_keyword("end")
 
         else:
-            self.parse_statement()
+            body_node.add_child(
+                self.parse_statement()
+            )
+
+        return body_node
 
     # ---------------------------------------------------------
     # Statements
     # ---------------------------------------------------------
 
-    def parse_statement(self) -> None:
-        """Parse one statement."""
+    def parse_statement(self) -> ASTNode:
+        """Parse one statement and return its AST node."""
 
         if self.match(TokenType.SEMICOLON):
-            return
+            token = self.previous()
+            return ASTNode(
+                "EmptyStatement",
+                line=token.line,
+                column=token.column,
+            )
 
         if self.check_keyword("if"):
-            self.parse_if_statement()
-            return
+            return self.parse_if_statement()
 
         if self.check_keyword("while"):
-            self.parse_while_statement()
-            return
+            return self.parse_while_statement()
 
         if self.check_keyword("for"):
-            self.parse_for_statement()
-            return
+            return self.parse_for_statement()
 
         if self.check_keyword("return"):
-            self.parse_return_statement()
-            return
+            return self.parse_return_statement()
 
         if self.looks_like_variable_declaration():
-            self.parse_variable_declaration(
+            return self.parse_variable_declaration(
                 expect_semicolon=True
             )
-            return
 
         if (
             self.check(TokenType.INCREMENT)
             or self.check(TokenType.DECREMENT)
         ):
-            self.parse_prefix_update(
+            return self.parse_prefix_update(
                 expect_semicolon=True
             )
-            return
 
         if self.check(TokenType.IDENTIFIER):
-            self.parse_identifier_statement(
+            return self.parse_identifier_statement(
                 expect_semicolon=True
             )
-            return
 
         self.error_current(
             "Expected a valid statement."
         )
 
+        raise AssertionError("Unreachable code.")
+
     def parse_variable_declaration(
         self,
         expect_semicolon: bool,
-    ) -> None:
-        """Parse a variable declaration."""
+    ) -> ASTNode:
+        """Parse a variable declaration and return its AST node."""
 
+        start_token = self.current()
         type_name = self.consume_type(
             allow_void=False
         )
@@ -396,6 +486,15 @@ class Parser:
                 str(error),
             )
 
+        if (
+            self.current_class_name is not None
+            and type_name not in BUILTIN_TYPES
+        ):
+            self.class_dependencies.setdefault(
+                self.current_class_name,
+                set(),
+            ).add(type_name)
+
         if initializer is None:
             self.output.append(
                 f"Variable: {type_name} "
@@ -411,10 +510,25 @@ class Parser:
 
             self.emit_math_result(initializer)
 
-    def parse_if_statement(self) -> None:
+        variable_node = ASTNode(
+            "VariableDeclaration",
+            attributes={
+                "type": type_name,
+                "name": name_token.lexeme,
+            },
+            line=start_token.line,
+            column=start_token.column,
+        )
+
+        if initializer is not None:
+            variable_node.add_child(initializer.node)
+
+        return variable_node
+
+    def parse_if_statement(self) -> ASTNode:
         """Parse if, else-if, and else structures."""
 
-        self.consume_keyword("if")
+        if_token = self.consume_keyword("if")
 
         self.consume(
             TokenType.LEFT_PAREN,
@@ -431,9 +545,26 @@ class Parser:
         self.output.append("Conditional: if")
         self.emit_math_result(condition)
 
-        self.parse_control_body()
+        if_node = ASTNode(
+            "IfStatement",
+            line=if_token.line,
+            column=if_token.column,
+        )
+
+        if_branch = ASTNode(
+            "IfBranch",
+            children=[
+                condition.node or ASTNode("UnknownExpression"),
+                self.parse_control_body(),
+            ],
+            line=if_token.line,
+            column=if_token.column,
+        )
+        if_node.add_child(if_branch)
 
         while self.match_keyword("else"):
+            else_token = self.previous()
+
             if self.match_keyword("if"):
                 self.consume(
                     TokenType.LEFT_PAREN,
@@ -452,20 +583,41 @@ class Parser:
                 )
 
                 self.emit_math_result(condition)
-                self.parse_control_body()
+
+                if_node.add_child(
+                    ASTNode(
+                        "ElseIfBranch",
+                        children=[
+                            condition.node
+                            or ASTNode("UnknownExpression"),
+                            self.parse_control_body(),
+                        ],
+                        line=else_token.line,
+                        column=else_token.column,
+                    )
+                )
 
             else:
                 self.output.append(
                     "Conditional: else"
                 )
 
-                self.parse_control_body()
+                if_node.add_child(
+                    ASTNode(
+                        "ElseBranch",
+                        children=[self.parse_control_body()],
+                        line=else_token.line,
+                        column=else_token.column,
+                    )
+                )
                 break
 
-    def parse_while_statement(self) -> None:
+        return if_node
+
+    def parse_while_statement(self) -> ASTNode:
         """Parse a while loop."""
 
-        self.consume_keyword("while")
+        while_token = self.consume_keyword("while")
 
         self.consume(
             TokenType.LEFT_PAREN,
@@ -482,12 +634,20 @@ class Parser:
         self.output.append("Loop: while")
         self.emit_math_result(condition)
 
-        self.parse_control_body()
+        return ASTNode(
+            "WhileStatement",
+            children=[
+                condition.node or ASTNode("UnknownExpression"),
+                self.parse_control_body(),
+            ],
+            line=while_token.line,
+            column=while_token.column,
+        )
 
-    def parse_for_statement(self) -> None:
+    def parse_for_statement(self) -> ASTNode:
         """Parse a for loop."""
 
-        self.consume_keyword("for")
+        for_token = self.consume_keyword("for")
         self.output.append("Loop: for")
 
         self.consume(
@@ -495,13 +655,23 @@ class Parser:
             "Expected '(' after for.",
         )
 
+        for_node = ASTNode(
+            "ForStatement",
+            line=for_token.line,
+            column=for_token.column,
+        )
+
         self.symbols.push_scope()
 
         try:
+            initializer_node: ASTNode | None = None
+            condition: ExpressionResult | None = None
+            update_node: ASTNode | None = None
+
             # Initializer
             if not self.check(TokenType.SEMICOLON):
                 if self.looks_like_variable_declaration():
-                    self.parse_variable_declaration(
+                    initializer_node = self.parse_variable_declaration(
                         expect_semicolon=False
                     )
 
@@ -509,12 +679,12 @@ class Parser:
                     self.check(TokenType.INCREMENT)
                     or self.check(TokenType.DECREMENT)
                 ):
-                    self.parse_prefix_update(
+                    initializer_node = self.parse_prefix_update(
                         expect_semicolon=False
                     )
 
                 else:
-                    self.parse_identifier_statement(
+                    initializer_node = self.parse_identifier_statement(
                         expect_semicolon=False
                     )
 
@@ -539,12 +709,12 @@ class Parser:
                     self.check(TokenType.INCREMENT)
                     or self.check(TokenType.DECREMENT)
                 ):
-                    self.parse_prefix_update(
+                    update_node = self.parse_prefix_update(
                         expect_semicolon=False
                     )
 
                 else:
-                    self.parse_identifier_statement(
+                    update_node = self.parse_identifier_statement(
                         expect_semicolon=False
                     )
 
@@ -553,12 +723,47 @@ class Parser:
                 "Expected ')' after for clauses.",
             )
 
-            self.parse_control_body()
+            for_node.add_child(
+                ASTNode(
+                    "ForInitializer",
+                    children=(
+                        [initializer_node]
+                        if initializer_node is not None
+                        else []
+                    ),
+                )
+            )
+            for_node.add_child(
+                ASTNode(
+                    "ForCondition",
+                    children=(
+                        [condition.node]
+                        if condition is not None
+                        and condition.node is not None
+                        else []
+                    ),
+                )
+            )
+            for_node.add_child(
+                ASTNode(
+                    "ForUpdate",
+                    children=(
+                        [update_node]
+                        if update_node is not None
+                        else []
+                    ),
+                )
+            )
+            for_node.add_child(
+                self.parse_control_body()
+            )
 
         finally:
             self.symbols.pop_scope()
 
-    def parse_return_statement(self) -> None:
+        return for_node
+
+    def parse_return_statement(self) -> ASTNode:
         """Parse a return statement."""
 
         return_keyword = self.consume_keyword(
@@ -594,40 +799,70 @@ class Parser:
                 "A non-void function must return a value.",
             )
 
+        return_node = ASTNode(
+            "ReturnStatement",
+            line=return_keyword.line,
+            column=return_keyword.column,
+        )
+
         if expression is not None:
             self.emit_math_result(expression)
+            return_node.add_child(expression.node)
 
-    def parse_control_body(self) -> None:
+        return return_node
+
+    def parse_control_body(self) -> ASTNode:
         """Parse a loop or conditional body."""
 
         self.symbols.push_scope()
+        body_node = ASTNode("Block")
 
         try:
             if self.match_keyword("begin"):
+                begin_token = self.previous()
+                body_node.line = begin_token.line
+                body_node.column = begin_token.column
+
                 while (
                     not self.check_keyword("end")
                     and not self.is_at_end()
                 ):
-                    self.parse_statement()
+                    body_node.add_child(
+                        self.parse_statement()
+                    )
 
                 self.consume_keyword("end")
 
             else:
-                self.parse_statement()
+                body_node.add_child(
+                    self.parse_statement()
+                )
 
         finally:
             self.symbols.pop_scope()
 
+        return body_node
+
     def parse_identifier_statement(
         self,
         expect_semicolon: bool,
-    ) -> None:
+    ) -> ASTNode:
         """Parse assignment, call, increment, or decrement."""
 
+        start_token = self.current()
         target = self.parse_identifier_path()
 
         if self.check(TokenType.LEFT_PAREN):
-            self.finish_function_call(target)
+            call_result = self.finish_function_call(
+                target,
+                start_token,
+            )
+            statement_node = call_result.node or ASTNode(
+                "FunctionCall",
+                attributes={"name": target},
+                line=start_token.line,
+                column=start_token.column,
+            )
 
         elif self.match(TokenType.ASSIGN):
             expression = self.parse_expression()
@@ -640,6 +875,20 @@ class Parser:
 
             self.emit_math_result(expression)
 
+            statement_node = ASTNode(
+                "AssignmentStatement",
+                children=[
+                    self.make_reference_node(
+                        target,
+                        start_token,
+                    ),
+                    expression.node
+                    or ASTNode("UnknownExpression"),
+                ],
+                line=start_token.line,
+                column=start_token.column,
+            )
+
         elif self.match(
             TokenType.INCREMENT,
             TokenType.DECREMENT,
@@ -647,11 +896,28 @@ class Parser:
             operator = self.previous()
             self.apply_update(target, operator)
 
+            statement_node = ASTNode(
+                "UpdateExpression",
+                attributes={
+                    "operator": operator.lexeme,
+                    "position": "postfix",
+                },
+                children=[
+                    self.make_reference_node(
+                        target,
+                        start_token,
+                    )
+                ],
+                line=start_token.line,
+                column=start_token.column,
+            )
+
         else:
             self.error_current(
                 "Expected assignment, function call, "
                 "increment, or decrement."
             )
+            raise AssertionError("Unreachable code.")
 
         if expect_semicolon:
             self.consume(
@@ -659,13 +925,16 @@ class Parser:
                 "Expected ';' after statement.",
             )
 
+        return statement_node
+
     def parse_prefix_update(
         self,
         expect_semicolon: bool,
-    ) -> None:
+    ) -> ASTNode:
         """Parse ++x or --x."""
 
         operator = self.advance()
+        target_token = self.current()
         target = self.parse_identifier_path()
 
         self.apply_update(
@@ -678,6 +947,22 @@ class Parser:
                 TokenType.SEMICOLON,
                 "Expected ';' after update.",
             )
+
+        return ASTNode(
+            "UpdateExpression",
+            attributes={
+                "operator": operator.lexeme,
+                "position": "prefix",
+            },
+            children=[
+                self.make_reference_node(
+                    target,
+                    target_token,
+                )
+            ],
+            line=operator.line,
+            column=operator.column,
+        )
 
     # ---------------------------------------------------------
     # Expressions
@@ -696,6 +981,7 @@ class Parser:
         if not self.match(TokenType.QUESTION_MARK):
             return condition
 
+        question_token = self.previous()
         when_true = self.parse_expression()
 
         self.consume(
@@ -727,6 +1013,16 @@ class Parser:
             value=value,
             type_name=result_type,
             is_math_expression=False,
+            node=ASTNode(
+                "TernaryExpression",
+                children=[
+                    condition.node or ASTNode("UnknownExpression"),
+                    when_true.node or ASTNode("UnknownExpression"),
+                    when_false.node or ASTNode("UnknownExpression"),
+                ],
+                line=question_token.line,
+                column=question_token.column,
+            ),
         )
 
     def parse_logical_or(self) -> ExpressionResult:
@@ -812,29 +1108,42 @@ class Parser:
         while self.current().token_type in operators:
             operator = self.advance()
             right = operand_parser()
+            left = expression
 
             value = evaluator(
                 operator,
-                expression,
+                left,
                 right,
             )
 
             expression = ExpressionResult(
                 text=(
-                    f"{expression.text} "
+                    f"{left.text} "
                     f"{operator.lexeme} "
                     f"{right.text}"
                 ),
                 value=value,
                 type_name=self.infer_binary_type(
                     operator,
-                    expression,
+                    left,
                     right,
                 ),
                 is_math_expression=(
                     math_level
-                    or expression.is_math_expression
+                    or left.is_math_expression
                     or right.is_math_expression
+                ),
+                node=ASTNode(
+                    "BinaryExpression",
+                    attributes={
+                        "operator": operator.lexeme,
+                    },
+                    children=[
+                        left.node or ASTNode("UnknownExpression"),
+                        right.node or ASTNode("UnknownExpression"),
+                    ],
+                    line=operator.line,
+                    column=operator.column,
                 ),
             )
 
@@ -870,6 +1179,18 @@ class Parser:
                     }
                     or operand.is_math_expression
                 ),
+                node=ASTNode(
+                    "UnaryExpression",
+                    attributes={
+                        "operator": operator.lexeme,
+                        "position": "prefix",
+                    },
+                    children=[
+                        operand.node or ASTNode("UnknownExpression")
+                    ],
+                    line=operator.line,
+                    column=operator.column,
+                ),
             )
 
         return self.parse_primary()
@@ -884,50 +1205,116 @@ class Parser:
                 token.lexeme,
                 int(token.lexeme),
                 "int",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "int",
+                        "value": int(token.lexeme),
+                        "text": token.lexeme,
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match(TokenType.FLOAT_LITERAL):
             token = self.previous()
+            value = float(token.lexeme[:-1])
 
             return ExpressionResult(
                 token.lexeme,
-                float(token.lexeme[:-1]),
+                value,
                 "float",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "float",
+                        "value": value,
+                        "text": token.lexeme,
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match(TokenType.DOUBLE_LITERAL):
             token = self.previous()
+            value = float(token.lexeme)
 
             return ExpressionResult(
                 token.lexeme,
-                float(token.lexeme),
+                value,
                 "double",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "double",
+                        "value": value,
+                        "text": token.lexeme,
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match(TokenType.STRING_LITERAL):
             token = self.previous()
+            value = token.lexeme[1:-1]
 
             return ExpressionResult(
                 token.lexeme,
-                token.lexeme[1:-1],
+                value,
                 "string",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "string",
+                        "value": value,
+                        "text": token.lexeme,
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match_keyword("true"):
+            token = self.previous()
             return ExpressionResult(
                 "true",
                 True,
                 "bool",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "bool",
+                        "value": True,
+                        "text": "true",
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match_keyword("false"):
+            token = self.previous()
             return ExpressionResult(
                 "false",
                 False,
                 "bool",
+                node=ASTNode(
+                    "Literal",
+                    attributes={
+                        "type": "bool",
+                        "value": False,
+                        "text": "false",
+                    },
+                    line=token.line,
+                    column=token.column,
+                ),
             )
 
         if self.match(TokenType.LEFT_PAREN):
+            left_paren = self.previous()
             inner = self.parse_expression()
 
             self.consume(
@@ -942,13 +1329,25 @@ class Parser:
                 is_math_expression=(
                     inner.is_math_expression
                 ),
+                node=ASTNode(
+                    "GroupedExpression",
+                    children=[
+                        inner.node or ASTNode("UnknownExpression")
+                    ],
+                    line=left_paren.line,
+                    column=left_paren.column,
+                ),
             )
 
         if self.check(TokenType.IDENTIFIER):
+            start_token = self.current()
             path = self.parse_identifier_path()
 
             if self.check(TokenType.LEFT_PAREN):
-                return self.finish_function_call(path)
+                return self.finish_function_call(
+                    path,
+                    start_token,
+                )
 
             if "." not in path:
                 variable_info = (
@@ -969,6 +1368,10 @@ class Parser:
                     if variable_info is not None
                     else None
                 ),
+                node=self.make_reference_node(
+                    path,
+                    start_token,
+                ),
             )
 
             if self.match(
@@ -987,6 +1390,19 @@ class Parser:
                     text=f"{path}{operator.lexeme}",
                     value=old_value,
                     type_name=result.type_name,
+                    node=ASTNode(
+                        "UpdateExpression",
+                        attributes={
+                            "operator": operator.lexeme,
+                            "position": "postfix",
+                        },
+                        children=[
+                            result.node
+                            or ASTNode("UnknownExpression")
+                        ],
+                        line=start_token.line,
+                        column=start_token.column,
+                    ),
                 )
 
             return result
@@ -1000,6 +1416,7 @@ class Parser:
     def finish_function_call(
         self,
         function_name: str,
+        name_token: Token,
     ) -> ExpressionResult:
         """Complete parsing of a function call."""
 
@@ -1034,10 +1451,47 @@ class Parser:
             f"Call: {function_name}({argument_text})"
         )
 
-        simple_name = function_name.split(".")[-1]
+        receiver_type: str | None = None
 
-        function_info = self.symbols.functions.get(
-            simple_name
+        if "." in function_name:
+            receiver_name = function_name.split(".", 1)[0]
+            receiver_info = self.symbols.lookup_variable(
+                receiver_name
+            )
+
+            if receiver_info is not None:
+                receiver_type = receiver_info.type_name
+
+        self.pending_calls.append(
+            PendingCall(
+                name=function_name,
+                argument_types=tuple(
+                    argument.type_name
+                    for argument in arguments
+                ),
+                token=name_token,
+                current_class_name=self.current_class_name,
+                receiver_type=receiver_type,
+            )
+        )
+
+        function_info = self.resolve_function_info(
+            function_name=function_name,
+            current_class_name=self.current_class_name,
+            receiver_type=receiver_type,
+        )
+
+        call_node = ASTNode(
+            "FunctionCall",
+            attributes={
+                "name": function_name,
+            },
+            children=[
+                argument.node or ASTNode("UnknownExpression")
+                for argument in arguments
+            ],
+            line=name_token.line,
+            column=name_token.column,
         )
 
         return ExpressionResult(
@@ -1048,6 +1502,7 @@ class Parser:
                 if function_info is not None
                 else None
             ),
+            node=call_node,
         )
 
     # ---------------------------------------------------------
@@ -1263,6 +1718,208 @@ class Parser:
             return str(int(value))
 
         return str(value)
+
+    def make_reference_node(
+        self,
+        path: str,
+        token: Token,
+    ) -> ASTNode:
+        """Create an identifier or member-access AST node."""
+
+        if "." not in path:
+            return ASTNode(
+                "Identifier",
+                attributes={"name": path},
+                line=token.line,
+                column=token.column,
+            )
+
+        parts = path.split(".")
+
+        return ASTNode(
+            "MemberAccess",
+            attributes={
+                "path": path,
+                "object": parts[0],
+                "member": parts[-1],
+            },
+            line=token.line,
+            column=token.column,
+        )
+
+    def resolve_function_info(
+        self,
+        function_name: str,
+        current_class_name: str | None,
+        receiver_type: str | None,
+    ) -> FunctionInfo | None:
+        """Resolve a global function or class method."""
+
+        if function_name == "print":
+            return FunctionInfo(
+                return_type="void",
+                name="print",
+                parameters=(),
+            )
+
+        if "." in function_name:
+            receiver_name, method_name = function_name.split(
+                ".",
+                1,
+            )
+
+            if receiver_type is not None:
+                return self.symbols.lookup_function(
+                    f"{receiver_type}.{method_name}"
+                )
+
+            if self.symbols.has_class(receiver_name):
+                return self.symbols.lookup_function(
+                    f"{receiver_name}.{method_name}"
+                )
+
+            return None
+
+        if current_class_name is not None:
+            method = self.symbols.lookup_function(
+                f"{current_class_name}.{function_name}"
+            )
+
+            if method is not None:
+                return method
+
+        return self.symbols.lookup_function(function_name)
+
+    def validate_pending_calls(self) -> None:
+        """Validate function existence, argument count, and argument types."""
+
+        for call in self.pending_calls:
+            if call.name == "print":
+                continue
+
+            function_info = self.resolve_function_info(
+                function_name=call.name,
+                current_class_name=call.current_class_name,
+                receiver_type=call.receiver_type,
+            )
+
+            if function_info is None:
+                self.semantic_error(
+                    call.token,
+                    f"Function '{call.name}' is not defined.",
+                )
+
+            expected_count = len(function_info.parameters)
+            actual_count = len(call.argument_types)
+
+            if expected_count != actual_count:
+                self.semantic_error(
+                    call.token,
+                    f"Function '{call.name}' expects "
+                    f"{expected_count} argument(s), but "
+                    f"{actual_count} were provided.",
+                )
+
+            for index, (argument_type, parameter) in enumerate(
+                zip(
+                    call.argument_types,
+                    function_info.parameters,
+                ),
+                start=1,
+            ):
+                if argument_type is None:
+                    continue
+
+                if not self.is_type_compatible(
+                    argument_type,
+                    parameter.type_name,
+                ):
+                    self.semantic_error(
+                        call.token,
+                        f"Argument {index} of function "
+                        f"'{call.name}' has type "
+                        f"'{argument_type}', but "
+                        f"'{parameter.type_name}' was expected.",
+                    )
+
+    @staticmethod
+    def is_type_compatible(
+        argument_type: str,
+        parameter_type: str,
+    ) -> bool:
+        """Check direct matches and safe numeric widening conversions."""
+
+        if argument_type == parameter_type:
+            return True
+
+        safe_numeric_conversions = {
+            ("int", "float"),
+            ("int", "double"),
+            ("float", "double"),
+        }
+
+        return (
+            argument_type,
+            parameter_type,
+        ) in safe_numeric_conversions
+
+    def emit_cyclic_dependency_warnings(self) -> None:
+        """Find cycles in the class-dependency graph using DFS."""
+
+        states: dict[str, str] = {
+            class_name: "white"
+            for class_name in self.symbols.classes
+        }
+        stack: list[str] = []
+        reported_cycles: set[frozenset[str]] = set()
+
+        def visit(class_name: str) -> None:
+            states[class_name] = "gray"
+            stack.append(class_name)
+
+            for dependency in sorted(
+                self.class_dependencies.get(
+                    class_name,
+                    set(),
+                )
+            ):
+                if dependency not in self.symbols.classes:
+                    continue
+
+                dependency_state = states[dependency]
+
+                if dependency_state == "white":
+                    visit(dependency)
+
+                elif dependency_state == "gray":
+                    cycle_start = stack.index(dependency)
+                    cycle = stack[cycle_start:] + [dependency]
+                    cycle_classes = frozenset(cycle[:-1])
+
+                    if cycle_classes in reported_cycles:
+                        continue
+
+                    reported_cycles.add(cycle_classes)
+
+                    if len(cycle_classes) == 2:
+                        first, second = cycle[:-1]
+                        self.output.append(
+                            "Warning: Cyclic dependency detected "
+                            f"between class {first} and class {second}."
+                        )
+                    else:
+                        self.output.append(
+                            "Warning: Cyclic dependency detected: "
+                            + " -> ".join(cycle)
+                            + "."
+                        )
+
+            stack.pop()
+            states[class_name] = "black"
+
+        for class_name in sorted(self.symbols.classes):
+            if states[class_name] == "white":
+                visit(class_name)
 
     # ---------------------------------------------------------
     # Token helpers

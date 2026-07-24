@@ -1,0 +1,231 @@
+{
+  "kind": "Program",
+  "children": [
+    {
+      "kind": "ClassDeclaration",
+      "attributes": {
+        "name": "Engine"
+      },
+      "line": 1,
+      "column": 1
+    },
+    {
+      "kind": "ClassDeclaration",
+      "attributes": {
+        "name": "Car"
+      },
+      "line": 4,
+      "column": 1,
+      "children": [
+        {
+          "kind": "VariableDeclaration",
+          "attributes": {
+            "type": "Engine",
+            "name": "engine"
+          },
+          "line": 5,
+          "column": 2
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "attributes": {
+            "name": "start",
+            "return_type": "void",
+            "owner_class": "Car"
+          },
+          "line": 7,
+          "column": 2,
+          "children": [
+            {
+              "kind": "Parameter",
+              "attributes": {
+                "type": "int",
+                "name": "level"
+              },
+              "line": 7,
+              "column": 13
+            },
+            {
+              "kind": "Block",
+              "line": 7,
+              "column": 24,
+              "children": [
+                {
+                  "kind": "FunctionCall",
+                  "attributes": {
+                    "name": "print"
+                  },
+                  "line": 8,
+                  "column": 3,
+                  "children": [
+                    {
+                      "kind": "Literal",
+                      "attributes": {
+                        "type": "string",
+                        "value": "Car started",
+                        "text": "\"Car started\""
+                      },
+                      "line": 8,
+                      "column": 9
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "ClassDeclaration",
+      "attributes": {
+        "name": "A"
+      },
+      "line": 12,
+      "column": 1,
+      "children": [
+        {
+          "kind": "VariableDeclaration",
+          "attributes": {
+            "type": "B",
+            "name": "b"
+          },
+          "line": 13,
+          "column": 2
+        }
+      ]
+    },
+    {
+      "kind": "ClassDeclaration",
+      "attributes": {
+        "name": "B"
+      },
+      "line": 16,
+      "column": 1,
+      "children": [
+        {
+          "kind": "VariableDeclaration",
+          "attributes": {
+            "type": "A",
+            "name": "a"
+          },
+          "line": 17,
+          "column": 2
+        }
+      ]
+    },
+    {
+      "kind": "FunctionDeclaration",
+      "attributes": {
+        "name": "helper",
+        "return_type": "void",
+        "owner_class": null
+      },
+      "line": 20,
+      "column": 1,
+      "children": [
+        {
+          "kind": "Parameter",
+          "attributes": {
+            "type": "int",
+            "name": "count"
+          },
+          "line": 20,
+          "column": 13
+        },
+        {
+          "kind": "Parameter",
+          "attributes": {
+            "type": "double",
+            "name": "ratio"
+          },
+          "line": 20,
+          "column": 24
+        },
+        {
+          "kind": "Block",
+          "line": 20,
+          "column": 38
+        }
+      ]
+    },
+    {
+      "kind": "FunctionDeclaration",
+      "attributes": {
+        "name": "main",
+        "return_type": "void",
+        "owner_class": null
+      },
+      "line": 23,
+      "column": 1,
+      "children": [
+        {
+          "kind": "Block",
+          "line": 23,
+          "column": 13,
+          "children": [
+            {
+              "kind": "VariableDeclaration",
+              "attributes": {
+                "type": "Car",
+                "name": "car"
+              },
+              "line": 24,
+              "column": 2
+            },
+            {
+              "kind": "FunctionCall",
+              "attributes": {
+                "name": "car.start"
+              },
+              "line": 25,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "int",
+                    "value": 1,
+                    "text": "1"
+                  },
+                  "line": 25,
+                  "column": 12
+                }
+              ]
+            },
+            {
+              "kind": "FunctionCall",
+              "attributes": {
+                "name": "helper"
+              },
+              "line": 26,
+              "column": 2,
+              "children": [
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "int",
+                    "value": 5,
+                    "text": "5"
+                  },
+                  "line": 26,
+                  "column": 9
+                },
+                {
+                  "kind": "Literal",
+                  "attributes": {
+                    "type": "double",
+                    "value": 2.5,
+                    "text": "2.5"
+                  },
+                  "line": 26,
+                  "column": 12
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

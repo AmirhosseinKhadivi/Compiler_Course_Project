@@ -1,0 +1,27 @@
+class Engine begin
+end
+
+class Car begin
+ Engine engine;
+
+ void start(int level) begin
+  print("Car started");
+ end
+end
+
+class A begin
+ B b;
+end
+
+class B begin
+ A a;
+end
+
+void helper(int count, double ratio) begin
+end
+
+void main() begin
+ Car car;
+ car.start(1);
+ helper(5, 2.5);
+end
